@@ -23,6 +23,7 @@ from scene_model import SceneModel
 from vis.utils import get_server
 from vis.viewer import DynamicViewer, debug_render_fn, VISER_NERFSTUDIO_SCALE_RATIO
 import viser.transforms as vtf
+from utils import get_viewmat
 
 def save_img(rendered, gt):
     import cv2 as cv
@@ -212,7 +213,8 @@ class Trainer:
         B = batch["imgs"].shape[0]
         W, H = img_wh = batch["imgs"].shape[2:0:-1]
         # (B, 4, 4).
-        w2cs = batch["w2cs"]
+        c2ws = batch["c2ws"]
+        viewmats = get_viewmat(c2ws)
         # (B, 3, 3).
         Ks = batch["Ks"]
         # (B, H, W, 3).
@@ -235,7 +237,7 @@ class Trainer:
         for i in range(B):
             bg_color = torch.ones(1, 3, device=device)
             rendered = self.model.render(
-                w2cs[None, i],
+                viewmats[None, i],
                 Ks[None, i],
                 img_wh,
                 bg_color=bg_color,
