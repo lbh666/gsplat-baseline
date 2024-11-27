@@ -60,7 +60,7 @@ class TrainConfig:
     num_epochs: int = 500
     port: int | None = None
     vis_debug: bool = False 
-    batch_size: int = 8
+    batch_size: int = 1
     num_dl_workers: int = 4
     validate_every: int = 50
     save_videos_every: int = 50
