@@ -146,7 +146,7 @@ def check_gaussian_sizes(
     leading_dims_match = (
         quats.shape[:-1] == dims
         and scales.shape[:-1] == dims
-        and feature_dc.shape[:-2] == dims
+        and feature_dc.shape[:-1] == dims
         and feature_rest.shape[:-2] == dims
         and opacities.shape == dims
     )

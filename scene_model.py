@@ -74,7 +74,7 @@ class SceneModel(nn.Module):
             means, quats = self.gs_params.params['means'], self.gs_params.get_quats()
 
         if colors_override is None:
-            colors_override = self.gs_params.get_colors()
+            colors_override = torch.cat((self.gs_params.features_dc[:, None, :], self.gs_params.features_rest), dim=1)
 
         D = colors_override.shape[-1]
 

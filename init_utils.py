@@ -40,7 +40,6 @@ def init_gs(
     min_scale = points_centered.quantile(0.05, dim=0)
     max_scale = points_centered.quantile(0.95, dim=0)
     scene_scale = torch.max(max_scale - min_scale).item() / 2.0
-    colors = torch.logit(points.colors)
     dim_sh = num_sh_bases(sh_degree)
 
     # Initialize gaussian scales: find the average of the three nearest
