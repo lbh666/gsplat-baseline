@@ -23,12 +23,12 @@ from loss_utils import (
     knn,
     masked_l1_loss,
 )
-from params import GaussianParams
+from params import GaussianParams, num_sh_bases, RGB2SH
 from tensor_dataclass import StaticObservations
 
 
 def init_gs(
-    points: StaticObservations,
+    points: StaticObservations, sh_degree: int = 3
 ) -> GaussianParams:
     """
     using dataclasses instead of individual tensors so we know they're consistent
@@ -40,7 +40,8 @@ def init_gs(
     min_scale = points_centered.quantile(0.05, dim=0)
     max_scale = points_centered.quantile(0.95, dim=0)
     scene_scale = torch.max(max_scale - min_scale).item() / 2.0
-    bkdg_colors = torch.logit(points.colors)
+    colors = torch.logit(points.colors)
+    dim_sh = num_sh_bases(sh_degree)
 
     # Initialize gaussian scales: find the average of the three nearest
     # neighbors in the first frame for each point and use that as the
@@ -48,9 +49,20 @@ def init_gs(
     dists, _ = knn(points.xyz, 3)
     dists = torch.from_numpy(dists)
     scales = dists.mean(dim=-1, keepdim=True)
-    bkdg_scales = torch.log(scales.repeat(1, 3))
+    scales = torch.log(scales.repeat(1, 3))
 
     means = points.xyz
+
+    # Initialize gaussian colors
+    shs = torch.zeros((points.xyz.shape[0], dim_sh, 3)).float()
+    if sh_degree > 0:
+        shs[:, 0, :3] = RGB2SH(points.colors)
+        shs[:, 1:, 3:] = 0.0
+    else:
+        guru.info("use color only optimization with sigmoid activation")
+        shs[:, 0, :3] = torch.logit(points.colors, eps=1e-10)
+    features_dc = torch.nn.Parameter(shs[:, 0, :])
+    features_rest = torch.nn.Parameter(shs[:, 1:, :])
 
     # Initialize gaussian orientations by normals.
     quats = random_quat_tensor(means.shape[0])
@@ -58,8 +70,9 @@ def init_gs(
     gaussians = GaussianParams(
         means,
         quats,
-        bkdg_scales,
-        bkdg_colors,
+        scales,
+        features_dc,
+        features_rest,
         opacities,
         scene_center=scene_center,
         scene_scale=scene_scale,
