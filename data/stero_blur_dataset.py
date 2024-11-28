@@ -21,7 +21,7 @@ import open3d as o3d
 @dataclass
 class SteroBlurDataConfig:
     data_dir: str
-    downscale_factor: int = 2
+    downscale_factor: int = 1
     auto_scale_poses: bool = True
     split: Literal["train", "val"] = "train"
 
@@ -29,7 +29,7 @@ class SteroBlurDataset(BaseDataset):
     def __init__(
         self,
         data_dir: str, 
-        downscale_factor: int = 2,
+        downscale_factor: int = 1,
         auto_scale_poses: bool = False,
         split: Literal["train", "val"] = "train",
     ):

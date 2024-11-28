@@ -7,7 +7,7 @@ import numpy as np
 
 # from pytorch3d.ops import sample_farthest_points
 import roma
-import torch
+import torch, math
 import torch.nn.functional as F
 from cuml import HDBSCAN, KMeans
 from loguru import logger as guru
@@ -53,8 +53,7 @@ def init_gs(
     means = points.xyz
 
     # Initialize gaussian orientations by normals.
-    quats = torch.zeros((means.shape[0], 4), device="cuda")
-    quats[:, 0] = 1
+    quats = random_quat_tensor(means.shape[0])
     opacities = torch.logit(torch.full((num_init_gaussians,), 0.1))
     gaussians = GaussianParams(
         means,
@@ -66,6 +65,23 @@ def init_gs(
         scene_scale=scene_scale,
     )
     return gaussians
+
+def random_quat_tensor(N):
+    """
+    Defines a random quaternion tensor of shape (N, 4)
+    """
+    u = torch.rand(N)
+    v = torch.rand(N)
+    w = torch.rand(N)
+    return torch.stack(
+        [
+            torch.sqrt(1 - u) * torch.sin(2 * math.pi * v),
+            torch.sqrt(1 - u) * torch.cos(2 * math.pi * v),
+            torch.sqrt(u) * torch.sin(2 * math.pi * w),
+            torch.sqrt(u) * torch.cos(2 * math.pi * w),
+        ],
+        dim=-1,
+    )
 
 
 def random_quats(N: int) -> torch.Tensor:
