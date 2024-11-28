@@ -64,18 +64,18 @@ class GaussianParams(nn.Module):
         return self.params["means"].shape[0]
     
     @property
-    def colors(self):
+    def colors(self) -> torch.Tensor:
         if self.config.sh_degree > 0:
             return SH2RGB(self.params['feature_dc'])
         else:
             return torch.sigmoid(self.params['feature_dc'])
         
     @property
-    def features_dc(self):
+    def features_dc(self) -> torch.Tensor:
         return self.params["features_dc"]
 
     @property
-    def features_rest(self):
+    def features_rest(self) -> torch.Tensor:
         return self.params["features_rest"]
 
     def get_scales(self) -> torch.Tensor:
