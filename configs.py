@@ -3,11 +3,11 @@ from dataclasses import dataclass
 
 @dataclass
 class GSLRConfig:
-    means: float = 1.6e-4
-    opacities: float = 5e-2
-    scales: float = 5e-3
-    quats: float = 1e-3
-    colors: float = 1e-2
+    means: float = 0.00016
+    opacities: float = 0.05
+    scales: float = 0.005
+    quats: float = 0.001
+    colors: float = 0.0025
 
 
 @dataclass

@@ -17,7 +17,6 @@ from viser import ViserServer
 
 from loss_utils import (
     compute_accel_loss,
-    compute_se3_smoothness_loss,
     compute_z_acc_loss,
     get_weights_for_procrustes,
     knn,

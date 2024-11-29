@@ -12,7 +12,7 @@ import yaml
 from loguru import logger as guru
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-
+import cv2 as cv
 from configs import LossesConfig, OptimizerConfig, SceneLRConfig
 from data import (
     BaseDataset,
@@ -56,12 +56,11 @@ class TrainConfig:
     optim: OptimizerConfig
     num_fg: int = 40_000
     num_bg: int = 100_000
-    num_motion_bases: int = 10
-    num_epochs: int = 500
+    iterations: int = 30_000
     port: int | None = None
     vis_debug: bool = False 
     batch_size: int = 1
-    num_dl_workers: int = 4
+    num_dl_workers: int = 8
     validate_every: int = 50
     save_videos_every: int = 50
 
@@ -109,21 +108,46 @@ def main(cfg: TrainConfig):
         num_workers=cfg.num_dl_workers,
         persistent_workers=True,
         collate_fn=BaseDataset.train_collate_fn,
+        pin_memory=True,
+        shuffle=True
+    )
+
+    val_loader = DataLoader(
+        train_dataset,
+        batch_size=cfg.batch_size,
+        num_workers=cfg.num_dl_workers,
+        persistent_workers=True,
+        collate_fn=BaseDataset.train_collate_fn,
+        pin_memory=True
     )
 
     guru.info(f"Starting training from {trainer.global_step=}")
-    for epoch in (
+    load_data = iter(train_loader)
+    for iters in (
         pbar := tqdm(
-            range(start_epoch, cfg.num_epochs),
-            initial=start_epoch,
-            total=cfg.num_epochs,
+            range(trainer.global_step, cfg.iterations),
+            initial=trainer.global_step,
+            total=cfg.iterations,
         )
     ):
-        trainer.set_epoch(epoch)
-        for batch in train_loader:
-            batch = to_device(batch, device)
-            loss = trainer.train_step(batch)
-            pbar.set_description(f"Loss: {loss:.6f}")
+        try:
+            batch = next(load_data)
+        except:
+            load_data = iter(train_loader)
+            batch = next(load_data)
+            trainer.set_epoch(iters // len(train_loader))
+        batch = to_device(batch, device)
+        loss = trainer.train_step(batch)
+        pbar.set_description(f"Loss: {loss:.6f}")
+    psnr_ = []
+    for idx, data in enumerate(val_loader):
+        data = to_device(data, device)
+        loss, stats, _, _, rendered = trainer.compute_losses(data)
+        psnr_.append(stats["train/psnr"].item())
+        cv.imwrite(f'outputs/{idx:03d}.png', (rendered.squeeze().detach().cpu().numpy()[..., ::-1]*255).astype(np.uint8))
+    print("Avg PSNR", np.array(psnr_).mean())
+
+
 
 
 def initialize_and_checkpoint_model(
@@ -143,9 +167,6 @@ def initialize_and_checkpoint_model(
     # run initial optimization
     Ks = train_dataset.get_Ks().to(device)
     w2cs = train_dataset.get_w2cs().to(device)
-    # if vis and cfg.port is not None:
-    #     server = get_server(port=cfg.port)
-    #     vis_init_params(server, fg_params, motion_bases)
     model = SceneModel(Ks, w2cs, gs_params)
 
     guru.info(f"Saving initialization to {ckpt_path}")

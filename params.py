@@ -35,7 +35,6 @@ class GaussianParams(nn.Module):
         self.color_activation = torch.sigmoid
         self.scale_activation = torch.exp
         self.opacity_activation = torch.sigmoid
-        self.motion_coef_activation = lambda x: F.softmax(x, dim=-1)
 
         if scene_center is None:
             scene_center = torch.zeros(3, device=means.device)
@@ -71,9 +70,6 @@ class GaussianParams(nn.Module):
     def get_quats(self) -> torch.Tensor:
         return self.quat_activation(self.params["quats"])
 
-    def get_coefs(self) -> torch.Tensor:
-        assert "motion_coefs" in self.params
-        return self.motion_coef_activation(self.params["motion_coefs"])
 
     def densify_params(self, should_split, should_dup):
         """
@@ -131,11 +127,3 @@ def check_gaussian_sizes(
         and (colors.shape[-1] == 3)
     )
     return leading_dims_match and dims_correct
-
-
-def check_bases_sizes(motion_rots: torch.Tensor, motion_transls: torch.Tensor) -> bool:
-    return (
-        motion_rots.shape[-1] == 6
-        and motion_transls.shape[-1] == 3
-        and motion_rots.shape[:-2] == motion_transls.shape[:-2]
-    )

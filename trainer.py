@@ -17,6 +17,7 @@ from loss_utils import (
     compute_se3_smoothness_loss,
     compute_z_acc_loss,
     masked_l1_loss,
+    ssim, l1_loss
 )
 from metrics import PCK, mLPIPS, mPSNR, mSSIM
 from scene_model import SceneModel
@@ -46,7 +47,7 @@ class Trainer:
         work_dir: str,
         port: int | None = None,
         log_every: int = 10,
-        checkpoint_every: int = 200,
+        checkpoint_every: int = 2000,
         validate_every: int = 500,
         validate_video_every: int = 1000,
         validate_viewer_assets_every: int = 100,
@@ -92,7 +93,6 @@ class Trainer:
 
 
         # metrics
-        self.ssim = SSIM(data_range=1.0, size_average=True, channel=3)
         self.psnr_metric = mPSNR()
         self.ssim_metric = mSSIM()
         self.lpips_metric = mLPIPS()
@@ -161,13 +161,6 @@ class Trainer:
         )
         w2c = torch.linalg.inv(
             torch.from_numpy(camera_state.c2w.astype(np.float32)).to(self.device)
-        )
-        t = 0
-        if self.viewer is not None:
-            t = (
-                int(self.viewer._playback_guis[0].value)
-                if not self.viewer._canonical_checkbox.value
-                else None
             )
         self.model.training = False
         img = self.model.render(w2c[None], K[None], img_wh)["img"][0]
@@ -179,7 +172,7 @@ class Trainer:
                 time.sleep(0.1)
             self.viewer.lock.acquire()
 
-        loss, stats, num_rays_per_step, num_rays_per_sec = self.compute_losses(batch)
+        loss, stats, num_rays_per_step, num_rays_per_sec, _ = self.compute_losses(batch)
         if loss.isnan():
             guru.info(f"Loss is NaN at step {self.global_step}!!")
             import ipdb
@@ -223,30 +216,20 @@ class Trainer:
         valid_masks = batch.get("valid_masks", torch.ones_like(batch["imgs"][..., 0]))
 
         _tic = time.time()
-        # (B, G, 3).
-        means, quats = self.model.gs_params.params['means'], self.model.gs_params.get_quats()
-        device = means.device
 
         loss = 0.0
 
-        bg_colors = []
         rendered_all = []
         self._batched_xys = []
         self._batched_radii = []
         self._batched_img_wh = []
         for i in range(B):
-            bg_color = torch.ones(1, 3, device=device)
             rendered = self.model.render(
                 viewmats[None, i],
                 Ks[None, i],
-                img_wh,
-                bg_color=bg_color,
-                means=means,
-                quats=quats,
-                return_depth=True,
+                img_wh
             )
             rendered_all.append(rendered)
-            bg_colors.append(bg_color)
             if (
                 self.model._current_xys is not None
                 and self.model._current_radii is not None
@@ -269,18 +252,13 @@ class Trainer:
             )
             for key in rendered_all[0]
         }
-        bg_colors = torch.cat(bg_colors, dim=0)
 
         # Compute losses.
         # RGB loss.
         rendered_imgs = cast(torch.Tensor, rendered_all["img"])
         # save_img(rendered_imgs, imgs)
-        rendered_imgs = (
-            rendered_imgs * valid_masks[..., None]
-            + (1.0 - valid_masks[..., None]) * bg_colors[:, None, None]
-        )
-        rgb_loss = 0.8 * F.l1_loss(rendered_imgs, imgs) + 0.2 * (
-            1 - self.ssim(rendered_imgs.permute(0, 3, 1, 2), imgs.permute(0, 3, 1, 2))
+        rgb_loss = 0.8 * l1_loss(rendered_imgs, imgs) + 0.2 * (
+            1 - ssim(rendered_imgs.permute(0, 3, 1, 2), imgs.permute(0, 3, 1, 2))
         )
         loss += rgb_loss * self.losses_cfg.w_rgb
 
@@ -308,7 +286,7 @@ class Trainer:
             }
         )
 
-        return loss, stats, num_rays_per_step, num_rays_per_sec
+        return loss, stats, num_rays_per_step, num_rays_per_sec, rendered_imgs
 
     def log_dict(self, stats: dict):
         for k, v in stats.items():

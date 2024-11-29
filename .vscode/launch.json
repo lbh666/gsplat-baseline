@@ -14,7 +14,7 @@
                 "--work-dir", "./results",
                 "--port", "1000",
                 "data:stero", "--data.data-dir",
-                "/home/dyblurGS/data/nerfstudio/poster"
+                "/home/dyblurGS/data/nerfstudio/poster",
             ],
             "justMyCode": true
         }
