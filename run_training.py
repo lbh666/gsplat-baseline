@@ -16,17 +16,15 @@ import cv2 as cv
 from configs import LossesConfig, OptimizerConfig, SceneLRConfig
 from data import (
     BaseDataset,
-    CustomDataConfig,
     get_train_val_datasets,
     SteroBlurDataConfig,
 )
-from utils import to_device
-from init_utils import init_gs
+from utils.utils import to_device
+from utils.init_utils import init_gs
 
-from scene_model import SceneModel
-from tensor_dataclass import StaticObservations
+from scene.scene_model import SceneModel
+from utils.tensor_dataclass import StaticObservations
 from trainer import Trainer
-from vis.utils import get_server
 
 torch.set_float32_matmul_precision("high")
 
@@ -39,9 +37,6 @@ def set_seed(seed):
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-
-
-set_seed(42)
 
 
 @dataclass
@@ -66,6 +61,7 @@ class TrainConfig:
 
 
 def main(cfg: TrainConfig):
+    set_seed(42)
     backup_code(cfg.work_dir)
     train_dataset = (
         get_train_val_datasets(cfg.data, load_val=True)

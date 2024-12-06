@@ -1,14 +1,11 @@
-import sys
-sys.path.append('..')
-
 import torch
 from torch.utils.data import Dataset, default_collate
 from typing import Literal
 import imageio.v3 as iio
-from utils import load_from_json
+from utils.utils import load_from_json
 import os.path as osp
 import numpy as np
-from camera_utils import get_distortion_params
+from utils.camera_utils import get_distortion_params
 from loguru import logger as guru
 from tqdm import tqdm
 from skimage.transform import resize

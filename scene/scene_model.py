@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from gsplat.rendering import rasterization
 from torch import Tensor
 
-from params import GaussianParams
+from .params import GaussianParams
 
 
 class SceneModel(nn.Module):

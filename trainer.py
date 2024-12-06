@@ -12,19 +12,19 @@ from pytorch_msssim import SSIM
 from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
 from configs import LossesConfig, OptimizerConfig, SceneLRConfig
-from loss_utils import (
+from utils.loss_utils import (
     compute_gradient_loss,
     compute_se3_smoothness_loss,
     compute_z_acc_loss,
     masked_l1_loss,
     ssim, l1_loss
 )
-from metrics import PCK, mLPIPS, mPSNR, mSSIM
-from scene_model import SceneModel
+from utils.metrics_utils import PCK, mLPIPS, mPSNR, mSSIM
+from scene.scene_model import SceneModel
 from vis.utils import get_server
 from vis.viewer import DynamicViewer, debug_render_fn, VISER_NERFSTUDIO_SCALE_RATIO
 import viser.transforms as vtf
-from utils import get_viewmat
+from utils.utils import get_viewmat
 
 def save_img(rendered, gt):
     import cv2 as cv

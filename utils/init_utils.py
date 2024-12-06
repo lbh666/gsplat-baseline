@@ -15,15 +15,15 @@ from matplotlib.pyplot import get_cmap
 from tqdm import tqdm
 from viser import ViserServer
 
-from loss_utils import (
+from .loss_utils import (
     compute_accel_loss,
     compute_z_acc_loss,
     get_weights_for_procrustes,
     knn,
     masked_l1_loss,
 )
-from params import GaussianParams
-from tensor_dataclass import StaticObservations
+from scene.params import GaussianParams
+from utils.tensor_dataclass import StaticObservations
 
 
 def init_gs(

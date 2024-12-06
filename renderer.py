@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from loguru import logger as guru
 from nerfview import CameraState
 
-from scene_model import SceneModel
+from scene.scene_model import SceneModel
 from vis.utils import draw_tracks_2d_th, get_server
 from vis.viewer import DynamicViewer, VISER_NERFSTUDIO_SCALE_RATIO
 
