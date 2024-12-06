@@ -1,0 +1,3 @@
+[submodule "submodules/viser"]
+	path = submodules/viser
+	url = https://github.com/nerfstudio-project/viser.git
