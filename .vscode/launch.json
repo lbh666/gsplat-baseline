@@ -14,7 +14,7 @@
                 "--work-dir", "./results",
                 "--port", "1000",
                 "data:colmap", "--data.data-dir",
-                "/home/dyblurGS/data/nerfstudio/poster",
+                "/home/DybluGS/bad-nerf-gtK-colmap-nvs/blurwine",
             ],
             "justMyCode": true
         }
