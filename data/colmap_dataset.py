@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset, default_collate
 from typing import Literal
 import imageio.v3 as iio
-from utils.utils import load_from_json
+from utils.utils import get_viewmat
 import os.path as osp
 import numpy as np
 from utils.camera_utils import get_distortion_params
@@ -106,6 +106,7 @@ class ColmapDataset(BaseDataset):
             guru.info(f"Auto scene scale factor of {self.scale_factor=}")
         self.c2ws[:, :3, 3] *= self.scale_factor
         self.w2cs = self.c2ws.inverse()
+        self.viewmats = get_viewmat(self.c2ws)
 
         # load images
         imgs = torch.from_numpy(
@@ -176,6 +177,7 @@ class ColmapDataset(BaseDataset):
             "w2cs": self.w2cs[index],
             "Ks": self.Ks[index],
             "imgs": self.imgs[index],
+            "viewmats": self.viewmats[index]
         }
 
         return data

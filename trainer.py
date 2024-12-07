@@ -206,8 +206,7 @@ class Trainer:
         B = batch["imgs"].shape[0]
         W, H = img_wh = batch["imgs"].shape[2:0:-1]
         # (B, 4, 4).
-        c2ws = batch["c2ws"]
-        viewmats = get_viewmat(c2ws)
+        viewmats = batch["viewmats"]
         # (B, 3, 3).
         Ks = batch["Ks"]
         # (B, H, W, 3).

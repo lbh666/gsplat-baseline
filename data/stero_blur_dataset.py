@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import Dataset, default_collate
 from typing import Literal
 import imageio.v3 as iio
-from utils.utils import load_from_json
+from utils.utils import load_from_json, get_viewmat
 import os.path as osp
 import numpy as np
 from utils.camera_utils import get_distortion_params
@@ -76,6 +76,7 @@ class SteroBlurDataset(BaseDataset):
         self.Ks = torch.tensor(Ks)
         self.Ks[:, :2] /= downscale_factor
         self.c2ws = torch.from_numpy(np.array(c2ws))
+        self.viewmats = get_viewmat(self.c2ws)
 
         self.scale_factor = 1.0
         if auto_scale_poses:
@@ -153,6 +154,7 @@ class SteroBlurDataset(BaseDataset):
             "w2cs": self.w2cs[index],
             "Ks": self.Ks[index],
             "imgs": self.imgs[index],
+            "viewmats": self.viewmats[index]
         }
 
         return data
