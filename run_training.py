@@ -18,6 +18,7 @@ from data import (
     BaseDataset,
     get_train_val_datasets,
     SteroBlurDataConfig,
+    ColmapDataConfig
 )
 from utils.utils import to_device
 from utils.init_utils import init_gs
@@ -43,8 +44,7 @@ def set_seed(seed):
 class TrainConfig:
     work_dir: str
     data: (Annotated[SteroBlurDataConfig, tyro.conf.subcommand(name="stero")]
-           | Annotated[SteroBlurDataConfig, tyro.conf.subcommand(name="stero")]
-           | Annotated[SteroBlurDataConfig, tyro.conf.subcommand(name="stero")]
+           | Annotated[ColmapDataConfig, tyro.conf.subcommand(name="colmap")]
     )
     lr: SceneLRConfig
     loss: LossesConfig

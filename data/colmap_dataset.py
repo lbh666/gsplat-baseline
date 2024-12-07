@@ -14,31 +14,45 @@ import re
 from .base_dataset import BaseDataset
 from dataclasses import dataclass
 import open3d as o3d
+from utils.colmap_parsing_utils import (
+    qvec2rotmat,
+    read_cameras_binary,
+    read_images_binary,
+    read_points3D_binary,
+    read_points3D_text,
+    parse_colmap_camera_params
+)
+
 
 @dataclass
-class SteroBlurDataConfig:
+class ColmapDataConfig:
     data_dir: str
     downscale_factor: int = 1
     auto_scale_poses: bool = True
     split: Literal["train", "val"] = "train"
 
-class SteroBlurDataset(BaseDataset):
+
+class ColmapDataset(BaseDataset):
     def __init__(
         self,
         data_dir: str, 
         downscale_factor: int = 1,
         auto_scale_poses: bool = True,
         split: Literal["train", "val"] = "train",
+        keep_original_world_coordinate: bool = False
     ):
         self.data_dir = data_dir
         self.downscale_factor = downscale_factor
         if self.downscale_factor != 1:
             guru.info(f"Image downscale factor of {self.downscale_factor=}")
-        meta = load_from_json(osp.join(data_dir, 'transforms.json'))
+        cam_id_to_camera = read_cameras_binary(osp.join(self.data_dir, "sparse/0/cameras.bin"))
+        im_id_to_image = read_images_binary(osp.join(self.data_dir, "sparse/0/images.bin"))
 
-        if "camera_model" in meta:
-            assert meta["camera_model"] == "OPENCV", "only support OPENCV camera model currently"
-        
+        assert set(cam_id_to_camera.keys()) == {1}, "only support single camera"
+
+        meta = parse_colmap_camera_params(cam_id_to_camera[1])
+
+        assert meta["camera_model"] == "OPENCV", "only support OPENCV camera model currently"
 
         # load camera inrinsic
         self.fx = float(meta["fl_x"])
@@ -48,20 +62,15 @@ class SteroBlurDataset(BaseDataset):
         height = int(meta["h"])
         width = int(meta["w"])
 
-        # sort the frames by fname
-        fnames = []
-        for frame in meta["frames"]:
-            filepath = frame["file_path"]
-            fname = osp.basename(filepath)
-            if osp.exists(osp.join(self.data_dir, filepath)):
-                fnames.append(fname)
-        inds = np.argsort(fnames)
-        inds = [ind for ind in inds if osp.exists(osp.join(self.data_dir, meta['frames'][ind]['file_path']))]
-        self.frame_names = [(meta['frames'][ind]['file_path']) for ind in inds]
+        applied_transform = np.eye(4)
+        if not keep_original_world_coordinate:
+            applied_transform = applied_transform[np.array([0, 2, 1, 3]), :]
+            applied_transform[2, :] *= -1
+        self.applied_transform = applied_transform
 
-        # load cameras
+        fnames = []
         Ks, c2ws = [], []
-        for ind in inds:
+        for im_id, im_data in im_id_to_image.items():
             Ks.append(
                     [
                         [self.fx, 0.0, self.cx],
@@ -69,13 +78,27 @@ class SteroBlurDataset(BaseDataset):
                         [0.0, 0.0, 1.0],
                     ]
                 )
-            c2ws.append(
-                np.array(meta["frames"][ind]["transform_matrix"], dtype=np.float32)
-            )
-        
+
+            rotation = qvec2rotmat(im_data.qvec)
+            translation = im_data.tvec.reshape(3, 1)
+            w2c = np.concatenate([rotation, translation], 1)
+            w2c = np.concatenate([w2c, np.array([[0, 0, 0, 1]])], 0)
+            c2w = np.linalg.inv(w2c)
+            # Convert from COLMAP's camera coordinate system (OpenCV) to ours (OpenGL)
+            c2w[0:3, 1:3] *= -1
+            c2w = applied_transform @ c2w
+            
+            if osp.exists(osp.join(self.data_dir, 'images', im_data.name)):
+                fnames.append(im_data.name)
+                c2ws.append(c2w)
+        # sort by file names
+        inds = np.argsort(fnames)
+        self.frame_names = [osp.join(self.data_dir, "images", fnames[ind]) for ind in inds]
+        c2ws = [c2ws[ind] for ind in inds]
+
         self.Ks = torch.tensor(Ks)
         self.Ks[:, :2] /= downscale_factor
-        self.c2ws = torch.from_numpy(np.array(c2ws))
+        self.c2ws = torch.from_numpy(np.array(c2ws)).float()
 
         self.scale_factor = 1.0
         if auto_scale_poses:
@@ -88,9 +111,7 @@ class SteroBlurDataset(BaseDataset):
         imgs = torch.from_numpy(
                 np.array(
                     [
-                        iio.imread(
-                            osp.join(self.data_dir, frame_name)
-                        )
+                        iio.imread(frame_name)
                         for frame_name in tqdm(
                             self.frame_names,
                             desc=f"Loading images",
@@ -112,19 +133,23 @@ class SteroBlurDataset(BaseDataset):
         time_ids = [float(re.search(pattern, osp.basename(fname).split('.')[0]).group(1)) for fname in self.frame_names]
         self.time_ids = torch.tensor(time_ids) - time_ids[0]
         guru.info(f"{self.time_ids.min()=} {self.time_ids.max()=}")
-    
+
     def get_pcd(
         self, **kwargs
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        pcd = o3d.io.read_point_cloud(osp.join(self.data_dir, 'sparse_pc.ply'))
+        if osp.exists(osp.join(self.data_dir, "sparse/0/points3D.bin")):
+            pcd = read_points3D_binary(osp.join(self.data_dir, "sparse/0/points3D.bin"))
+        elif osp.exists(osp.join(self.data_dir, "sparse/0/points3D.txt")):
+            pcd = read_points3D_text(osp.join(self.data_dir, "sparse/0/points3D.txt"))
 
-        points3D = torch.from_numpy(np.asarray(pcd.points, dtype=np.float32)) * self.scale_factor
+        points3D = torch.from_numpy(np.array([p.xyz for p in pcd.values()], dtype=np.float32)) * self.scale_factor
+        if hasattr(self, "applied_transform"):
+            points3D = (torch.from_numpy(self.applied_transform).float()[:3, :3] @ points3D[..., None]).squeeze(-1)
         points3D_normal = torch.ones_like(points3D) / 3 ** (1/2)
-        points3D_rgb = torch.from_numpy(np.asarray(pcd.colors, dtype=np.float32))
+        points3D_rgb = torch.from_numpy(np.array([p.rgb for p in pcd.values()], dtype=np.float32)) / 255.
 
         return points3D, points3D_normal, points3D_rgb
-        
-
+    
     def __len__(self):
         return self.imgs.shape[0]
     
@@ -143,8 +168,6 @@ class SteroBlurDataset(BaseDataset):
     def get_image(self, index: int) -> torch.Tensor:
         return self.imgs
     
-    
-    
     def __getitem__(self, index: int):
         data = {
             "frame_names": self.frame_names[index],
@@ -156,11 +179,7 @@ class SteroBlurDataset(BaseDataset):
         }
 
         return data
-        
 
+            
 
-
-
-if __name__ == "__main__":
-    dataset = SteroBlurDataset('/home/DybluGS/dataset/basketball')
 
