@@ -112,6 +112,7 @@ class SteroBlurDataset(BaseDataset):
         pattern = r"(?:frame_)?(\d+)"
         time_ids = [float(re.search(pattern, osp.basename(fname).split('.')[0]).group(1)) for fname in self.frame_names]
         self.time_ids = torch.tensor(time_ids) - time_ids[0]
+        self.time_ids /= time_ids[-1]
         guru.info(f"{self.time_ids.min()=} {self.time_ids.max()=}")
     
     def get_pcd(
