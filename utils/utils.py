@@ -18,7 +18,7 @@ Input/output utils.
 
 import json, torch
 from pathlib import Path
-
+import numpy as np
 
 def load_from_json(filename: str):
     """Load a dictionary from a JSON filename.
@@ -67,3 +67,25 @@ def get_viewmat(optimized_camera_to_world):
     viewmat[:, :3, :3] = R_inv
     viewmat[:, :3, 3:4] = T_inv
     return viewmat
+
+def camera_nerfies_from_JSON(path, scale):
+    """Loads a JSON camera into memory."""
+    with open(path, 'r') as fp:
+        camera_json = json.load(fp)
+
+    # Fix old camera JSON.
+    if 'tangential' in camera_json:
+        camera_json['tangential_distortion'] = camera_json['tangential']
+
+    return dict(
+        orientation=np.array(camera_json['orientation']),
+        position=np.array(camera_json['position']),
+        focal_length=camera_json['focal_length'] * scale,
+        principal_point=np.array(camera_json['principal_point']) * scale,
+        skew=camera_json['skew'],
+        pixel_aspect_ratio=camera_json['pixel_aspect_ratio'],
+        radial_distortion=np.array(camera_json['radial_distortion']),
+        tangential_distortion=np.array(camera_json['tangential_distortion']),
+        image_size=np.array((int(round(camera_json['image_size'][0] * scale)),
+                             int(round(camera_json['image_size'][1] * scale)))),
+    )

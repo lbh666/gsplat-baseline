@@ -1,6 +1,6 @@
 from dataclasses import dataclass
-from typing import Callable, TypeVar
-
+from typing import Callable, TypeVar, NamedTuple
+import numpy as np
 import torch
 from typing_extensions import Self
 
@@ -94,3 +94,8 @@ class StaticObservations(TensorDataclass):
 
     def filter_valid(self, valid_mask: torch.Tensor) -> Self:
         return self.map(lambda x: x[valid_mask])
+
+class BasicPointCloud(NamedTuple):
+    points: np.array
+    colors: np.array
+    normals: np.array
