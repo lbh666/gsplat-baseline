@@ -53,7 +53,7 @@ def qvec2rotmat(qvec):
          1 - 2 * qvec[1] ** 2 - 2 * qvec[2] ** 2]])
 
 
-def rotmat2qvec(R):
+def rotmat2qvec(R: np.ndarray) -> np.ndarray:
     Rxx, Ryx, Rzx, Rxy, Ryy, Rzy, Rxz, Ryz, Rzz = R.flat
     K = np.array([
         [Rxx - Ryy - Rzz, 0, 0, 0],
@@ -146,7 +146,7 @@ def read_points3D_binary(path_to_model_file):
     return xyzs, rgbs, errors
 
 
-def read_intrinsics_text(path):
+def read_intrinsics_text(path: str) -> dict[int, Image]:
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
     """
@@ -171,7 +171,7 @@ def read_intrinsics_text(path):
     return cameras
 
 
-def read_extrinsics_binary(path_to_model_file):
+def read_extrinsics_binary(path_to_model_file: str) -> dict[int, Image]:
     """
     see: src/base/reconstruction.cc
         void Reconstruction::ReadImagesBinary(const std::string& path)
@@ -206,7 +206,7 @@ def read_extrinsics_binary(path_to_model_file):
     return images
 
 
-def read_intrinsics_binary(path_to_model_file):
+def read_intrinsics_binary(path_to_model_file: str) -> dict[int, Image]:
     """
     see: src/base/reconstruction.cc
         void Reconstruction::WriteCamerasBinary(const std::string& path)
@@ -235,7 +235,7 @@ def read_intrinsics_binary(path_to_model_file):
     return cameras
 
 
-def read_extrinsics_text(path) -> dict[int, Image]:
+def read_extrinsics_text(path: str) -> dict[int, Image]:
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_write_model.py
     """
@@ -264,7 +264,7 @@ def read_extrinsics_text(path) -> dict[int, Image]:
     return images
 
 
-def read_colmap_bin_array(path):
+def read_colmap_bin_array(path: str) -> np.ndarray:
     """
     Taken from https://github.com/colmap/colmap/blob/dev/scripts/python/read_dense.py
 
