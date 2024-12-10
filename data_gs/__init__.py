@@ -29,7 +29,7 @@ class DataConfig:
 
 def get_train_val_datasets(
     data_cfg: DataConfig, load_val: bool = True, scene_norm: bool = True
-) -> BaseDataset:
+) -> tuple[BaseDataset, BaseDataset]:
     if data_cfg.type == "colmap" or os.path.exists(os.path.join(data_cfg.data_dir, "sparse")):
         scene_info = sceneLoadTypeCallbacks.Colmap(data_cfg.data_dir, data_cfg.images, load_val)
     elif data_cfg.type == "bender" or os.path.exists(os.path.join(data_cfg.data_dir, "transforms_train.json")):
@@ -48,7 +48,7 @@ def get_train_val_datasets(
         assert False, "Could not recognize scene type!"
 
     nerf_normalization = scene_info.nerf_normalization if scene_norm else None
-    train_cameras = BaseDataset(scene_info.train_cameras, scene_info.point_cloud, data_cfg.downscale_factor, nerf_normalization=nerf_normalization)
-    test_cameras = BaseDataset(scene_info.test_cameras, data_cfg.downscale_factor, nerf_normalization=nerf_normalization)
+    train_cameras = BaseDataset(scene_info.train_cameras, pcd=scene_info.point_cloud, downscale_factor=data_cfg.downscale_factor, nerf_normalization=nerf_normalization)
+    test_cameras = BaseDataset(scene_info.test_cameras, downscale_factor=data_cfg.downscale_factor, nerf_normalization=nerf_normalization)
 
     return train_cameras, test_cameras

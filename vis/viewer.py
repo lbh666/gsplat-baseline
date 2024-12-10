@@ -98,13 +98,17 @@ class DynamicViewer(Viewer):
         self.show_images.on_click(lambda _: self.toggle_cameravis_button())
         self.show_images.visible = False
 
+        self.camera_handles: list[viser.CameraFrustumHandle] = []
+        self.original_c2w: list[np.ndarray] = []
+        self.point_cloud_handle = None
+
     def set_camera_visibility(self, visible: bool) -> None:
         """Toggle the visibility of the training cameras."""
         with self.server.atomic():
-            for idx in self.camera_handles:
-                self.camera_handles[idx].visible = visible
-                if self.point_cloud_handle:
-                    self.point_cloud_handle.visible = visible
+            for camera_handle in self.camera_handles:
+                camera_handle.visible = visible
+            if self.point_cloud_handle:
+                self.point_cloud_handle.visible = visible
 
     def toggle_cameravis_button(self) -> None:
         self.hide_images.visible = not self.hide_images.visible
@@ -115,6 +119,7 @@ class DynamicViewer(Viewer):
         self,
         dataset,
         train_state: Literal["training", "paused", "completed"],
+        split: Literal["train", "test"] = "train",
     ) -> None:
         """Draw some images and the scene aabb in the viewer.
 
@@ -123,8 +128,6 @@ class DynamicViewer(Viewer):
             train_state: Current status of training
         """
         # draw the training cameras and images
-        self.camera_handles: Dict[int, viser.CameraFrustumHandle] = {}
-        self.original_c2w: Dict[int, np.ndarray] = {}
         fx, fy, cx, cy = dataset.fx, dataset.fy, dataset.cx, dataset.cy
         for idx in range(len(dataset)):
             data = dataset[idx]
@@ -142,7 +145,7 @@ class DynamicViewer(Viewer):
             R = vtf.SO3.from_matrix(c2w[:3, :3])
             R = R @ vtf.SO3.from_x_radians(np.pi)
             camera_handle = self.server.scene.add_camera_frustum(
-                name=f"/cameras/camera_{idx:05d}",
+                name=f"/cameras/{data['frame_names']}",
                 fov=float(2 * np.arctan(cx / fx)),
                 scale=0.1,
                 aspect=float(cx / cy),
@@ -161,15 +164,16 @@ class DynamicViewer(Viewer):
 
             camera_handle.on_click(create_on_click_callback(idx))
 
-            self.camera_handles[idx] = camera_handle
-            self.original_c2w[idx] = c2w
-
+            self.camera_handles.append(camera_handle)
+            self.original_c2w.append(c2w)
+        print("len self.camera_handles: ", len(self.camera_handles))
         self.train_state = train_state
         self.train_util = 0.9
-        self.point_cloud_handle = None
-        if self.dataset.pcd:
+        try:
             pcd, _, pcd_color = dataset.get_pcd()
-
+        except:
+            pcd = None
+        if pcd is not None:
             self.point_cloud_handle = self.server.scene.add_point_cloud(
                 name="/colmap/pcd",
                 points=pcd.numpy() * VISER_NERFSTUDIO_SCALE_RATIO,

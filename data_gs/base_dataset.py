@@ -66,9 +66,10 @@ class BaseDataset(Dataset):
             self.translate = torch.from_numpy(applied_transform)[:3, :3] @ torch.from_numpy(nerf_normalization['translate'])[..., None]
             self.c2ws[:, :3, 3] += self.translate[..., 0]
             guru.info(f"Auto center scene with translation {self.translate=}")
-            self.scale_factor /= float(torch.max(torch.abs(self.c2ws[:, :3, 3])))
+            self.scale_factor /= nerf_normalization["radius"]
             guru.info(f"Auto scene scale factor of {self.scale_factor=}")
         self.c2ws[:, :3, 3] *= self.scale_factor
+        self.w2cs = self.c2ws.inverse()
         self.Ks[:, :2] /= downscale_factor
 
         self.fx, self.fy, self.cx, self.cy = self.Ks[0][0,0], self.Ks[0][1,1], self.Ks[0][0,2], self.Ks[0][1,2]
@@ -91,6 +92,7 @@ class BaseDataset(Dataset):
         self.imgs = imgs[..., :3] / 255.0
 
         self.frame_names = [viewpoint_camera.image_name for viewpoint_camera in self.data]
+        print(self.frame_names)
         # load metadata
         pattern = r"(?:frame_)?(\d+)"
         time_ids = [float(re.search(pattern, osp.basename(viewpoint_camera.image_path).split('.')[0]).group(1)) for viewpoint_camera in self.data]
@@ -114,12 +116,38 @@ class BaseDataset(Dataset):
         return data
 
     def get_pcd(self):
-
-        points3D = torch.from_numpy(np.asarray(self.pcd.points, dtype=np.float32)) * self.scale_factor
+        points3D = torch.from_numpy(np.asarray(self.pcd.points, dtype=np.float32))
         if hasattr(self, "applied_transform"):
             points3D = (torch.from_numpy(self.applied_transform).float()[:3, :3] @ points3D[..., None]).squeeze(-1)
+        points3D += self.translate[..., 0]
+        points3D *= self.scale_factor
         points3D_normal = torch.ones_like(points3D) / 3 ** (1/2)
         points3D_rgb = torch.from_numpy(np.array(self.pcd.colors, dtype=np.float32))
 
         return points3D, points3D_normal, points3D_rgb
+
+    def get_Ks(self):
+        return self.Ks
+
+    def get_w2cs(self):
+        return self.w2cs
     
+    @staticmethod
+    def train_collate_fn(batch):
+        collated = {}
+        for k in batch[0]:
+            if k not in [
+                "query_tracks_2d",
+                "target_ts",
+                "target_w2cs",
+                "target_Ks",
+                "target_tracks_2d",
+                "target_visibles",
+                "target_track_depths",
+                "target_invisibles",
+                "target_confidences",
+            ]:
+                collated[k] = default_collate([sample[k] for sample in batch])
+            else:
+                collated[k] = [sample[k] for sample in batch]
+        return collated
