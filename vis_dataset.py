@@ -32,11 +32,17 @@ from vis.viewer import DynamicViewer, debug_render_fn, VISER_NERFSTUDIO_SCALE_RA
 torch.set_float32_matmul_precision("high")
 
 
-cfg = SteroBlurDataConfig('/home/dyblurGS/data/nerfstudio/poster')
-dataset = SteroBlurDataset(**asdict(cfg))
+# cfg = SteroBlurDataConfig('/home/dyblurGS/data/nerfstudio/poster')
+# dataset = SteroBlurDataset(**asdict(cfg))
+
+from data_gs import get_train_val_datasets, DataConfig
+cfg = DataConfig('/home/dyblurGS/data/nerfstudio/poster')
+dataset, _ = get_train_val_datasets(cfg, True, scene_norm=True)
 
 server = get_server(port=1000)
 viewer = DynamicViewer(
     server, debug_render_fn, 100, 'tmp', mode="training"
 )
 viewer.init_scene(dataset, 'training')
+while True:
+    continue

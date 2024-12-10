@@ -103,7 +103,8 @@ class DynamicViewer(Viewer):
         with self.server.atomic():
             for idx in self.camera_handles:
                 self.camera_handles[idx].visible = visible
-                self.point_cloud_handle.visible = visible
+                if self.point_cloud_handle:
+                    self.point_cloud_handle.visible = visible
 
     def toggle_cameravis_button(self) -> None:
         self.hide_images.visible = not self.hide_images.visible
@@ -112,7 +113,7 @@ class DynamicViewer(Viewer):
 
     def init_scene(
         self,
-        train_dataset: SteroBlurDataset,
+        dataset,
         train_state: Literal["training", "paused", "completed"],
     ) -> None:
         """Draw some images and the scene aabb in the viewer.
@@ -124,9 +125,9 @@ class DynamicViewer(Viewer):
         # draw the training cameras and images
         self.camera_handles: Dict[int, viser.CameraFrustumHandle] = {}
         self.original_c2w: Dict[int, np.ndarray] = {}
-        fx, fy, cx, cy = train_dataset.fx, train_dataset.fy, train_dataset.cx, train_dataset.cy
-        for idx in range(len(train_dataset)):
-            data = train_dataset[idx]
+        fx, fy, cx, cy = dataset.fx, dataset.fy, dataset.cx, dataset.cy
+        for idx in range(len(dataset)):
+            data = dataset[idx]
             image = data["imgs"]
             c2w = data["c2ws"].cpu().numpy()
             image_uint8 = (image * 255).detach().type(torch.uint8)
@@ -165,13 +166,14 @@ class DynamicViewer(Viewer):
 
         self.train_state = train_state
         self.train_util = 0.9
+        self.point_cloud_handle = None
+        if self.dataset.pcd:
+            pcd, _, pcd_color = dataset.get_pcd()
 
-        pcd, _, pcd_color = train_dataset.get_pcd()
-
-        self.point_cloud_handle = self.server.scene.add_point_cloud(
-            name="/colmap/pcd",
-            points=pcd.numpy() * VISER_NERFSTUDIO_SCALE_RATIO,
-            colors=pcd_color.numpy(),
-            point_size=0.005,
-        )
+            self.point_cloud_handle = self.server.scene.add_point_cloud(
+                name="/colmap/pcd",
+                points=pcd.numpy() * VISER_NERFSTUDIO_SCALE_RATIO,
+                colors=pcd_color.numpy(),
+                point_size=0.005,
+            )
     
