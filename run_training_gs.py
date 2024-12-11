@@ -23,6 +23,7 @@ from utils.init_utils import init_gs
 from scene.scene_model import SceneModel
 from utils.tensor_dataclass import StaticObservations
 from trainer import Trainer
+import random
 
 torch.set_float32_matmul_precision("high")
 
@@ -50,7 +51,7 @@ class TrainConfig:
     port: int | None = None
     vis_debug: bool = False 
     batch_size: int = 1
-    num_dl_workers: int = 8
+    num_dl_workers: int = 16
     validate_every: int = 50
     save_videos_every: int = 50
 
@@ -92,45 +93,46 @@ def main(cfg: TrainConfig):
     trainer.viewer.init_scene(train_dataset, "training")
     trainer.viewer.init_scene(test_dataset, "training")
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=cfg.batch_size,
-        num_workers=cfg.num_dl_workers,
-        persistent_workers=True,
-        collate_fn=BaseDataset.train_collate_fn,
-        pin_memory=True,
-        shuffle=True
-    )
+    # train_loader = DataLoader(
+    #     train_dataset,
+    #     batch_size=cfg.batch_size,
+    #     num_workers=cfg.num_dl_workers,
+    #     persistent_workers=True,
+    #     collate_fn=BaseDataset.train_collate_fn,
+    #     pin_memory=True,
+    #     shuffle=True
+    # )
 
-    val_loader = DataLoader(
-        test_dataset,
-        batch_size=1,
-        num_workers=0,
-        collate_fn=BaseDataset.train_collate_fn,
-    )
+    # val_loader = DataLoader(
+    #     test_dataset,
+    #     batch_size=1,
+    #     num_workers=0,
+    #     collate_fn=BaseDataset.train_collate_fn,
+    # )
 
     guru.info(f"Starting training from {trainer.global_step=}")
-    load_data = iter(train_loader)
-    for iters in (
-        pbar := tqdm(
-            range(trainer.global_step, cfg.iterations),
-            initial=trainer.global_step,
-            total=cfg.iterations,
-        )
-    ):
-        try:
-            batch = next(load_data)
-        except:
-            load_data = iter(train_loader)
-            batch = next(load_data)
-            trainer.set_epoch(iters // len(train_loader))
+    progress_bar = tqdm(range(trainer.global_step, cfg.iterations), initial=trainer.global_step, total=cfg.iterations,)
+    for iters in range(trainer.global_step, cfg.iterations + 1):
+        
+        idx = random.randint(0, len(train_dataset) - 1)
+        batch = train_dataset[idx]
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                batch[k] = v[None]
         batch = to_device(batch, device)
         loss = trainer.train_step(batch)
-        pbar.set_description(f"Loss: {loss:.6f}")
+        if iters % 100 == 0:
+            progress_bar.set_description(f"Loss: {loss:.6f}")
+            progress_bar.update(100)
+        if iters == cfg.iterations:
+            progress_bar.close()
     psnr_ = []
-    for idx, data in enumerate(val_loader):
-        data = to_device(data, device)
-        loss, stats, _, _, rendered = trainer.compute_losses(data)
+    for idx, batch in enumerate(test_dataset):
+        for k, v in batch.items():
+            if isinstance(v, torch.Tensor):
+                batch[k] = v[None]
+        batch = to_device(batch, device)
+        loss, stats, _, _, rendered = trainer.compute_losses(batch)
         psnr_.append(stats["train/psnr"].item())
         cv.imwrite(f'outputs/{idx:03d}.png', (rendered.squeeze().detach().cpu().numpy()[..., ::-1]*255).astype(np.uint8))
     print("Avg PSNR", np.array(psnr_).mean())

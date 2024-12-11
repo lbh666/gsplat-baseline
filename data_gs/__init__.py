@@ -20,7 +20,7 @@ from .base_dataset import BaseDataset
 @dataclass
 class DataConfig:
     data_dir: str
-    downscale_factor: int = 1
+    downscale_factor: int = 2
     auto_scale_poses: bool = True
     split: Literal["train", "val"] = "train"
     type: Literal["colmap", "bender", "dtu", "nerfies", "plenopticVideo"] = "colmap"

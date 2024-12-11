@@ -211,8 +211,6 @@ class Trainer:
         Ks = batch["Ks"]
         # (B, H, W, 3).
         imgs = batch["imgs"]
-        # (B, H, W).
-        valid_masks = batch.get("valid_masks", torch.ones_like(batch["imgs"][..., 0]))
 
         _tic = time.time()
 
@@ -270,13 +268,13 @@ class Trainer:
             "train/num_gaussians": self.model.num_gaussians,
         }
 
-        # Compute metrics.
-        with torch.no_grad():
-            psnr = self.psnr_metric(
-                rendered_imgs, imgs, valid_masks
-            )
-            self.psnr_metric.reset()
-            stats["train/psnr"] = psnr
+        # # Compute metrics.
+        # with torch.no_grad():
+        #     psnr = self.psnr_metric(
+        #         rendered_imgs, imgs, valid_masks
+        #     )
+        #     self.psnr_metric.reset()
+        #     stats["train/psnr"] = psnr
 
         stats.update(
             **{

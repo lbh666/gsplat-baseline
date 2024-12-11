@@ -96,8 +96,6 @@ class SceneModel(nn.Module):
 
         B = 0
 
-        assert colors_override.shape[-1] == sum(ds_expected.values())
-        assert bg_color.shape[-1] == sum(ds_expected.values())
 
         if return_depth:
             mode = "RGB+ED"

@@ -88,11 +88,12 @@ class BaseDataset(Dataset):
                 )
             )
         if downscale_factor != 1:
+            guru.info(f"Down scale the images with {downscale_factor=}")
             imgs = F.interpolate(imgs.permute(0,3,1,2), scale_factor=1./downscale_factor).permute(0,2,3,1)
         self.imgs = imgs[..., :3] / 255.0
 
         self.frame_names = [viewpoint_camera.image_name for viewpoint_camera in self.data]
-        print(self.frame_names)
+
         # load metadata
         pattern = r"(?:frame_)?(\d+)"
         time_ids = [float(re.search(pattern, osp.basename(viewpoint_camera.image_path).split('.')[0]).group(1)) for viewpoint_camera in self.data]
