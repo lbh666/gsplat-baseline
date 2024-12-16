@@ -1,1 +1,1 @@
-# DybluGS
+# gsplat-baseline
